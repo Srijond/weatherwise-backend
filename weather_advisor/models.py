@@ -6,6 +6,7 @@ from django.db import models
 
 class TemperatureForecast(models.Model):
     district_id = models.IntegerField()
+    district_name = models.CharField(max_length=255,default="Unknown District")
     date = models.DateField()
     temperature_at_2pm = models.FloatField()
 

@@ -6,13 +6,12 @@ from datetime import datetime, timedelta
 def handle(*args, **kwargs):
         from weather_advisor.models import TemperatureForecast
         # Load district data from JSON file
-        with open('/Users/srijon/Desktop/Personal/AB Project/weatherwise-backend/weather_advisor/district_info.json', 'r') as f:
+        with open('weather_advisor/district_info.json', 'r') as f:
             district_data = json.load(f)
         
         today = datetime.now()
-
         for district in district_data.get('districts'):
-            name = district['name']
+            district_name = district['name']
             lat = district['lat']
             lon = district['long']
             district_id = district['id']
@@ -25,7 +24,6 @@ def handle(*args, **kwargs):
             # Extract temperatures at 2 PM (14:00) for the next 7 days
             hourly_times = data['hourly']['time']
             hourly_temps = data['hourly']['temperature_2m']
-            print('hello')
             
             for i in range(7):  # Loop for the next 7 days
                 date = (today + timedelta(days=i)).date()
@@ -41,6 +39,7 @@ def handle(*args, **kwargs):
                     # Update or create the temperature forecast record
                     TemperatureForecast.objects.update_or_create(
                         district_id=district_id,
+                        district_name=district_name,
                         date=date,
                         defaults={'temperature_at_2pm': temperature_at_2pm}
                     )
@@ -48,3 +47,44 @@ def handle(*args, **kwargs):
 
 
 
+def parse_date(date_str):
+    try:
+        # Attempt to parse the date string in the format 'YYYY-MM-DD'
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        # If parsing fails, return None or raise an error
+        return None
+
+
+
+def fetch_weather_temp(lat, lon, travel_date):
+    """Fetch the temperature at 2 PM for a given latitude, longitude, and date."""
+
+
+    formatted_date = travel_date.strftime('%Y-%m-%d')
+    response = requests.get(f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}8&hourly=temperature_2m&forecast_days=7')
+    
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+    
+    # Extract the temperature at 2 PM for the specific date
+    import pdb;pdb.set_trace()
+    for time, temp in zip(data['hourly']['time'], data['hourly']['temperature_2m']):
+        if time.startswith(str(formatted_date)) and time.endswith('14:00'):
+            return temp
+
+    return None
+
+def lat_long_by_name(district_name):
+    with open('weather_advisor/district_info.json', 'r') as f:
+            district_data = json.load(f)
+    for district in district_data.get('districts'):
+        if district['name'].lower() == district_name.lower():  # Case insensitive comparison
+            return {
+                'id': district['id'],
+                'lat': district['lat'],
+                'long': district['long']
+            }
+    return None 

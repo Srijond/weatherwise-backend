@@ -11,13 +11,8 @@ class WeatherAdvisorConfig(AppConfig):
     def ready(self):
         """Override this method to execute code when the app is ready."""
         # Register signals or perform other startup code
-        flag = False
-        if flag:
-            print('hello 1st srijon-----')
-            self.perform_initial_setup()
-            flag = False
-        
-
-    def perform_initial_setup(self):
-        handle()
+        if not hasattr(self, 'already_handled'):
+            from weather_advisor.utils import handle
+            # handle()
+            self.already_handled = True
         
