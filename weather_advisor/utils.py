@@ -3,6 +3,7 @@ import requests
 from datetime import datetime, timedelta
 
 
+
 def handle(*args, **kwargs):
         from weather_advisor.models import TemperatureForecast
         # Load district data from JSON file
@@ -55,36 +56,44 @@ def parse_date(date_str):
         # If parsing fails, return None or raise an error
         return None
 
-
-
-def fetch_weather_temp(lat, lon, travel_date):
-    """Fetch the temperature at 2 PM for a given latitude, longitude, and date."""
-
-
-    formatted_date = travel_date.strftime('%Y-%m-%d')
-    response = requests.get(f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}8&hourly=temperature_2m&forecast_days=7')
-    
-    if response.status_code != 200:
-        return None
-
-    data = response.json()
-    
-    # Extract the temperature at 2 PM for the specific date
-    import pdb;pdb.set_trace()
-    for time, temp in zip(data['hourly']['time'], data['hourly']['temperature_2m']):
-        if time.startswith(str(formatted_date)) and time.endswith('14:00'):
-            return temp
-
-    return None
-
 def lat_long_by_name(district_name):
     with open('weather_advisor/district_info.json', 'r') as f:
             district_data = json.load(f)
     for district in district_data.get('districts'):
         if district['name'].lower() == district_name.lower():  # Case insensitive comparison
             return {
-                'id': district['id'],
                 'lat': district['lat'],
                 'long': district['long']
             }
     return None 
+
+
+
+
+def fetch_weather_temp(lat, lon, travel_date):
+    """Fetch the temperature at 2 PM for a given latitude, longitude, and date."""
+
+    formatted_date = travel_date.strftime('%Y-%m-%d')
+    formatted_date_time = f'{formatted_date}T14:00'
+    response = requests.get(f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m&start_hour={formatted_date_time}&end_hour={formatted_date_time}')
+    
+    if response.status_code != 200:
+        return None
+
+    data = response.json()    
+    # Extract the temperature at 2 PM for the specific date
+    curr_temp = data.get('hourly').get('temperature_2m')[0]
+    if curr_temp:
+         return curr_temp
+    return None
+
+def get_temperature(district_name, date):
+    from .models import TemperatureForecast
+    try:
+        temp_record = TemperatureForecast.objects.get(district_name=district_name, date=date)
+        return temp_record.temperature_at_2pm
+    except TemperatureForecast.DoesNotExist:
+        lat_long = lat_long_by_name(district_name)
+        if lat_long:
+            return fetch_weather_temp(lat_long.get('lat'), lat_long.get('long'), date)
+        return None

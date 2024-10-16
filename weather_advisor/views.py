@@ -5,7 +5,7 @@ from django.core.cache import cache
 from django.db.models import Avg
 from datetime import date, timedelta
 from .models import TemperatureForecast
-from .utils import  parse_date
+from .utils import  fetch_weather_temp, get_temperature, lat_long_by_name, parse_date
 
 def coolest_districts_view(request):
     
@@ -37,8 +37,6 @@ def compare_temperatures(request):
         travel_date = request.GET.get('date')                 # Format: 'YYYY-MM-DD'
 
         
-        friend_temp = None
-        destination_temp = None
 
         if not all([friend_location, destination, travel_date]):
             return JsonResponse({'error': 'Please provide friend_location, destination, and date.'}, status=400)
@@ -48,49 +46,31 @@ def compare_temperatures(request):
         if travel_date is None:
             return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
         
-        # Get temperature forecasts for both locations at 2 PM on the travel date
-        try:
-            friend_temp = TemperatureForecast.objects.get(district_name=friend_location, date=travel_date)
-        except TemperatureForecast.DoesNotExist:
-            # Fetch temperature from the API if not found in the database
-            
-            friend_temp_error = f'Temperature data not available for {friend_location} on {travel_date}.'
-
-        try:
-            destination_temp = TemperatureForecast.objects.get(district_name=destination, date=travel_date)
-        except TemperatureForecast.DoesNotExist:
-            destination_temp_error = f'Temperature data not available for {destination} on {travel_date}.'
-
-           
-        if friend_temp is None and destination_temp is None:
-            return JsonResponse({
-                'error': friend_temp_error + " " + destination_temp_error
-            }, status=404)
         
-        if friend_temp is None:
-            return JsonResponse({'error': friend_temp_error}, status=404)
+         # Fetch temperatures for both locations
+        friend_temp = get_temperature(friend_location, travel_date)
+        destination_temp = get_temperature(destination, travel_date)
+       
 
-        if destination_temp is None:
-            return JsonResponse({'error': destination_temp_error}, status=404)
+        if friend_temp is None or destination_temp is None:
+            return JsonResponse({'error': 'Temperature data not available for one or both locations.'}, status=404)
 
-
-
-        # Compare temperatures
-        if friend_temp.temperature_at_2pm > destination_temp.temperature_at_2pm:
+        # Compare temperatures and decide
+        if friend_temp > destination_temp:
             decision = f"You should travel to {destination}."
-        elif friend_temp.temperature_at_2pm < destination_temp.temperature_at_2pm:
+        elif friend_temp < destination_temp:
             decision = f"You should stay at {friend_location}."
         else:
             decision = f"The temperatures are the same at both locations."
 
+        # Prepare response data
         response_data = {
             'friend_location': friend_location,
             'destination': destination,
             'travel_date': travel_date,
-            'friend_temp': friend_temp.temperature_at_2pm,
-            'destination_temp': friend_temp.temperature_at_2pm,
+            'friend_temp': friend_temp,
+            'destination_temp': destination_temp,
             'decision': decision
         }
-        return JsonResponse(response_data)
 
-    return JsonResponse({'error': 'Invalid request method. Use GET.'}, status=405)
+    return JsonResponse(response_data)
