@@ -28,7 +28,6 @@ def sync_temperature_data(*args, **kwargs):
             # Extract temperatures at 2 PM (14:00) for the next 7 days
             hourly_times = data['hourly']['time']
             hourly_temps = data['hourly']['temperature_2m']
-            print('srijon---------')
             for i in range(7):  # Loop for the next 7 days
                 date = (today + timedelta(days=i)).date()
                 
