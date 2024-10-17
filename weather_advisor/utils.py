@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 
 
-def handle(*args, **kwargs):
+def sync_temperature_data(*args, **kwargs):
         from weather_advisor.models import TemperatureForecast
         # Load district data from JSON file
         with open('weather_advisor/district_info.json', 'r') as f:
@@ -19,13 +19,16 @@ def handle(*args, **kwargs):
            
 
             # Make a single API call to get the 7-day forecast
-            response = requests.get(f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}8&hourly=temperature_2m&forecast_days=7')
-            data = response.json()
+            try:
+                response = requests.get(f'https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}8&hourly=temperature_2m&forecast_days=7&timezone=Asia%2FSingapore')
+                data = response.json()
+            except requests.exceptions.RequestException as e:
+                print(f"Error while fetching data for {district_name}: {e}")
 
             # Extract temperatures at 2 PM (14:00) for the next 7 days
             hourly_times = data['hourly']['time']
             hourly_temps = data['hourly']['temperature_2m']
-            
+            print('srijon---------')
             for i in range(7):  # Loop for the next 7 days
                 date = (today + timedelta(days=i)).date()
                 
@@ -38,12 +41,16 @@ def handle(*args, **kwargs):
 
                 if temperature_at_2pm is not None:
                     # Update or create the temperature forecast record
-                    TemperatureForecast.objects.update_or_create(
-                        district_id=district_id,
-                        district_name=district_name,
-                        date=date,
-                        defaults={'temperature_at_2pm': temperature_at_2pm}
-                    )
+                    try:
+                        TemperatureForecast.objects.update_or_create(
+                            district_id=district_id,
+                            district_name=district_name,
+                            date=date,
+                            defaults={'temperature_at_2pm': temperature_at_2pm}
+                        )
+                    except Exception as e:
+                        # Catch all exceptions (including DatabaseError, IntegrityError, etc.)
+                        print(f"Unexpected error for {district_name} on {date}: {e}")
 
 
 

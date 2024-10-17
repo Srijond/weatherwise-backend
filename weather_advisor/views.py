@@ -1,13 +1,15 @@
 # weather/views.py
 from django.shortcuts import render
 from django.http import JsonResponse
+import json
 from django.core.cache import cache
 from django.db.models import Avg
 from datetime import date, timedelta
 from .models import TemperatureForecast
+from django.views.decorators.csrf import csrf_exempt
 from .utils import  fetch_weather_temp, get_temperature, lat_long_by_name, parse_date
 
-def coolest_districts_view(request):
+def coolest_districts(request):
     
 
     today = date.today()
@@ -29,12 +31,18 @@ def coolest_districts_view(request):
 
     return JsonResponse(result, safe=False)
 
+@csrf_exempt
 def compare_temperatures(request):
-    if request.method == 'GET':
+    if request.method == 'POST':
         # Get parameters from the request
-        friend_location = request.GET.get('friend_location')  # Example: 'district1'
-        destination = request.GET.get('destination')          # Example: 'district2'
-        travel_date = request.GET.get('date')                 # Format: 'YYYY-MM-DD'
+        try:
+            body = json.loads(request.body)
+            friend_location = body.get('friend_location')  # Example: 'district1'
+            destination = body.get('destination')          # Example: 'district2'
+            travel_date = body.get('date')                 # Format: 'YYYY-MM-DD'
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON format.'}, status=400)
+
 
         
 
@@ -73,4 +81,7 @@ def compare_temperatures(request):
             'decision': decision
         }
 
-    return JsonResponse(response_data)
+        return JsonResponse(response_data)
+    
+    return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
+

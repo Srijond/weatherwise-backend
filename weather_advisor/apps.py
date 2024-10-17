@@ -1,6 +1,7 @@
 from django.apps import AppConfig
 from django.db.models.signals import post_migrate
-from weather_advisor.utils import handle
+from weather_advisor.utils import sync_temperature_data
+
 
 
 class WeatherAdvisorConfig(AppConfig):
@@ -9,10 +10,8 @@ class WeatherAdvisorConfig(AppConfig):
 
 
     def ready(self):
+        from .tasks import schedule_temperature_data_task
         """Override this method to execute code when the app is ready."""
         # Register signals or perform other startup code
-        if not hasattr(self, 'already_handled'):
-            from weather_advisor.utils import handle
-            # handle()
-            self.already_handled = True
-        
+        sync_temperature_data()
+        schedule_temperature_data_task()
